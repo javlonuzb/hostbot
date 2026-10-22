@@ -6,7 +6,7 @@ import tempfile
 import unittest
 import zipfile
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(file))))
 import db  # noqa: E402
 import runner  # noqa: E402
 
@@ -115,8 +115,62 @@ class TestRun(Base):
         self.assertIn("kod 3", msg)
 
 
+class TestRelativeDataDir(unittest.TestCase):
+    """DATA_DIR='data' (nisbiy) bo'lganda ham requirements, DB_PATH to'g'ri ishlashi kerak."""
+
+    def test_relative_paths(self):
+        old_cwd, old_dir = os.getcwd(), db.DATA_DIR
+        tmp = tempfile.TemporaryDirectory()
+        try:
+            os.chdir(tmp.name)
+            db.DATA_DIR = "data"
+            db.init()
+            hid = db.add_host(1, "111:T", "T", "t")
+            d = db.bot_dir(hid)
+            self.assertTrue(os.path.isabs(d))
+            os.makedirs(d)
+            with open(os.path.join(d, "requirements.txt"), "w") as f:
+                f.write("# bo'sh\n")
+            with open(os.path.join(d, "main.py"), "w") as f:
+                f.write(
+                    "import os, sqlite3, time\n"
+                    "c = sqlite3.connect(os.environ['DB_PATH']); c.execute('create table t(x)'); c.commit()\n"
+                    "print('DB=', os.environ['DB_PATH'])\n"
+                    "time.sleep(60)\n"
+                )
+            db.update_host(hid, entry="main.py")
+
+            async def go():
+                ok, msg = await runner.start(db.get_host(hid))
+                log = runner.tail_log(hid)
+                await runner.stop(hid)
+                return ok, msg, log
+
+            ok, msg, log = asyncio.run(go())
+            self.assertTrue(ok, msg + log)
+            self.assertTrue(os.path.isfile(os.path.join(d, "data.db")))
+        finally:
+            asyncio.run(runner.stop_all())
+            os.chdir(old_cwd)
+            db.DATA_DIR = old_dir
+            tmp.cleanup()
+
+
+class TestZipAsEntry(Base):
+    def test_zip_saved_as_py_is_rejected(self):
+        hid = db.add_host(1, "111:T", "T", "t")
+        d = db.bot_dir(hid)
+        os.makedirs(d)
+        with zipfile.ZipFile(os.path.join(d, "echo_bot.py"), "w") as zf:
+            zf.writestr("x.py", "print(1)")
+        db.update_host(hid, entry="echo_bot.py")
+        ok, msg = asyncio.run(runner.start(db.get_host(hid)))
+        self.assertFalse(ok)
+        self.assertIn("zip", msg)
+
+
 @unittest.skipUnless(
-    __import__("importlib").util.find_spec("aiogram"), "aiogram o'rnatilmagan"
+    import("importlib").util.find_spec("aiogram"), "aiogram o'rnatilmagan"
 )
 class TestImport(unittest.TestCase):
     def test_main_imports(self):
