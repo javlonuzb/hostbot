@@ -13,7 +13,8 @@ def db_path():
 
 
 def bot_dir(host_id):
-    return os.path.join(DATA_DIR, "bots", str(host_id))
+    # Absolyut yo'l: bot jarayoni boshqa papkadan (cwd) ishga tushadi
+    return os.path.abspath(os.path.join(DATA_DIR, "bots", str(host_id)))
 
 
 def _conn():
