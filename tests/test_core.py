@@ -1,4 +1,5 @@
 import asyncio
+import importlib.util
 import os
 import sqlite3
 import sys
@@ -6,7 +7,7 @@ import tempfile
 import unittest
 import zipfile
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(file))))
+sys.path.insert(0, os.getcwd())  # testlar repo ildizidan ishga tushiriladi
 import db  # noqa: E402
 import runner  # noqa: E402
 
@@ -169,9 +170,7 @@ class TestZipAsEntry(Base):
         self.assertIn("zip", msg)
 
 
-@unittest.skipUnless(
-    import("importlib").util.find_spec("aiogram"), "aiogram o'rnatilmagan"
-)
+@unittest.skipUnless(importlib.util.find_spec("aiogram"), "aiogram o'rnatilmagan")
 class TestImport(unittest.TestCase):
     def test_main_imports(self):
         import main  # noqa: F401
