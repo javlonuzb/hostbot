@@ -199,10 +199,11 @@ async def download(bot: Bot, doc, uid):
 
 
 def install_upload(d, tmp, name):
+    """Zip bo'lsa ochadi va fayllar ro'yxatini qaytaradi, aks holda nusxalaydi."""
     if name.lower().endswith(".zip"):
-        runner.safe_extract(tmp, d)
-    else:
-        shutil.copy(tmp, os.path.join(d, name))
+        return runner.safe_extract(tmp, d)
+    shutil.copy(tmp, os.path.join(d, name))
+    return []
 
 
 def doc_error(doc, only_code=False):
@@ -418,6 +419,12 @@ async def upload_file(m: Message, state: FSMContext, bot: Bot):
     if not h or h["owner_id"] != m.from_user.id:
         await state.clear()
         return
+    if data["mode"] == "edit" and (m.document.file_name or "").lower().endswith(".zip") \
+            and not data["target"].lower().endswith(".zip"):
+        return await m.answer(
+            "❌ Zip bilan bitta faylni almashtirib bo'lmaydi.\n"
+            "Zip uchun «📄 Yangi fayl» tugmasidan foydalaning, yoki shu yerga oddiy fayl yuboring (/cancel — bekor)."
+        )
     tmp, name = await download(bot, m.document, m.from_user.id)
     await state.update_data(tmp=tmp, name=name)
     await state.set_state(Upload.confirm)
@@ -451,7 +458,10 @@ async def upload_confirm(c: CallbackQuery, state: FSMContext):
         if data["mode"] == "edit":
             shutil.copy(tmp, runner.safe_join(d, data["target"]))
         else:
-            install_upload(d, tmp, data["name"])
+            extracted = install_upload(d, tmp, data["name"])
+            cand = next((e for e in runner.ENTRY_CANDIDATES if e in extracted), None)
+            if cand:
+                db.update_host(h["id"], entry=cand)
         cur = db.get_host(h["id"])
         if not cur["entry"] or not os.path.isfile(os.path.join(d, cur["entry"])):
             db.update_host(h["id"], entry=runner.find_entry(d))
