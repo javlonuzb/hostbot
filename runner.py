@@ -226,6 +226,8 @@ async def start(host):
     entry = host["entry"]
     if not entry or not os.path.isfile(os.path.join(d, entry)):
         return False, "Asosiy fayl topilmadi. Sozlamalardan tanlang."
+    if zipfile.is_zipfile(os.path.join(d, entry)):
+        return False, "Asosiy fayl .py emas, zip arxiv ekan. Sozlamalardan to'g'ri .py faylni tanlang."
     os.makedirs(d, exist_ok=True)
     log = open(os.path.join(d, "bot.log"), "ab")
     log.write(f"\n[host] {time.strftime('%Y-%m-%d %H:%M:%S')} ishga tushirilmoqda: {entry}\n".encode())
