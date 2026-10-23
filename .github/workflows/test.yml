@@ -21,6 +21,11 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
+      - uses: shivammathur/setup-php@v2   # PHP botlar va ularning testlari uchun
+        with:
+          php-version: "8.3"
+          extensions: curl, mbstring, json, pdo_sqlite, sqlite3
+          tools: composer
       - run: pip install -r requirements.txt
       - run: python -m unittest discover -s tests -v
 
@@ -33,8 +38,6 @@ jobs:
       group: run-hostbot
       cancel-in-progress: false
     env:
-      MASTER_BOT_TOKEN: ${{ secrets.MASTER_BOT_TOKEN }}
-      ALLOWED_USERS: ${{ secrets.ALLOWED_USERS }}
       MAX_RUNTIME_MIN: "340"
       DATA_DIR: data
     steps:
@@ -45,6 +48,11 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: curl, mbstring, json, pdo_sqlite, sqlite3
+          tools: composer
       - run: pip install -r requirements.txt
 
       - name: Ma'lumotlarni tiklash
@@ -53,10 +61,18 @@ jobs:
           path: |
             data
             !data/bots/*/libs
+            !data/bots/*/vendor
           key: hostdata-${{ github.run_id }}
           restore-keys: hostdata-
 
       - name: Hosting botni ishga tushirish
+        # Maxfiy qiymatlar faqat shu qadamga beriladi (boshqa action'lar ularni ko'rmaydi)
+        env:
+          MASTER_BOT_TOKEN: ${{ secrets.MASTER_BOT_TOKEN }}
+          ALLOWED_USERS: ${{ secrets.ALLOWED_USERS }}
+          ADMIN_USERS: ${{ secrets.ADMIN_USERS }}   # ixtiyoriy: yangilik qo'sha oladiganlar
+          API_KEY: ${{ secrets.API_KEY }}           # DeepSeek API kaliti
+          AI_MODEL: ${{ vars.AI_MODEL }}            # ixtiyoriy (standart: deepseek-v4-flash)
         run: python main.py
 
       - name: Ma'lumotlarni saqlash
@@ -66,4 +82,5 @@ jobs:
           path: |
             data
             !data/bots/*/libs
+            !data/bots/*/vendor
           key: hostdata-${{ github.run_id }}
