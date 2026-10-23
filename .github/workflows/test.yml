@@ -1,11 +1,11 @@
-name: test
+name: host-bot-v2
 
 on:
   push:
   pull_request:
-  workflow_dispatch:        # Actions -> test -> Run workflow
+  workflow_dispatch:
   schedule:
-    - cron: "0 */6 * * *"   # har 6 soatda qayta ishga tushadi
+    - cron: "0 */6 * * *"
 
 permissions:
   contents: read
@@ -21,12 +21,13 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - uses: shivammathur/setup-php@v2   # PHP botlar va ularning testlari uchun
+      - uses: shivammathur/setup-php@v2
         with:
           php-version: "8.3"
-          extensions: curl, mbstring, json, pdo_sqlite, sqlite3
+          extensions: curl, mbstring, pdo_sqlite, sqlite3
           tools: composer
       - run: pip install -r requirements.txt
+      - run: python -m compileall -q .
       - run: python -m unittest discover -s tests -v
 
   run-bot:
@@ -51,36 +52,24 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with:
           php-version: "8.3"
-          extensions: curl, mbstring, json, pdo_sqlite, sqlite3
+          extensions: curl, mbstring, pdo_sqlite, sqlite3
           tools: composer
       - run: pip install -r requirements.txt
-
-      - name: Ma'lumotlarni tiklash
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            data
-            !data/bots/*/libs
-            !data/bots/*/vendor
-          key: hostdata-${{ github.run_id }}
-          restore-keys: hostdata-
-
-      - name: Hosting botni ishga tushirish
-        # Maxfiy qiymatlar faqat shu qadamga beriladi (boshqa action'lar ularni ko'rmaydi)
+      # No Actions cache for hosting.db or bot data. Only pip's download cache is used.
+      # main.py discovers the last pinned Telegram ZIP via BACKUP_CHANNEL_ID before autostart.
+      - name: Telegramdan tiklash va hostingni ishga tushirish
         env:
           MASTER_BOT_TOKEN: ${{ secrets.MASTER_BOT_TOKEN }}
+          ADMIN_IDS: ${{ secrets.ADMIN_IDS }}
+          ADMIN_USERS: ${{ secrets.ADMIN_USERS }}
           ALLOWED_USERS: ${{ secrets.ALLOWED_USERS }}
-          ADMIN_USERS: ${{ secrets.ADMIN_USERS }}   # ixtiyoriy: yangilik qo'sha oladiganlar
-          API_KEY: ${{ secrets.API_KEY }}           # DeepSeek API kaliti
-          AI_MODEL: ${{ vars.AI_MODEL }}            # ixtiyoriy (standart: deepseek-v4-flash)
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          BACKUP_CHANNEL_ID: ${{ secrets.BACKUP_CHANNEL_ID }}
+          API_KEY: ${{ secrets.API_KEY }}
+          AI_MODEL: ${{ vars.AI_MODEL }}
+          AI_MODELS: ${{ vars.AI_MODELS }}
+          AI_BASE_URL: ${{ vars.AI_BASE_URL }}
+          PUBLIC_ACCESS: ${{ vars.PUBLIC_ACCESS || 'false' }}
+          MAX_BOTS: ${{ vars.MAX_BOTS || '3' }}
+          AI_DAILY: ${{ vars.AI_DAILY || '25' }}
         run: python main.py
-
-      - name: Ma'lumotlarni saqlash
-        if: always()
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            data
-            !data/bots/*/libs
-            !data/bots/*/vendor
-          key: hostdata-${{ github.run_id }}
